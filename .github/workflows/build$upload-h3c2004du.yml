@@ -10,7 +10,7 @@
 # See /LICENSE for more information.
 #
 
-name: OpenWrt Builder
+name: build$upload-h3c2004du
 
 on:
   repository_dispatch:
