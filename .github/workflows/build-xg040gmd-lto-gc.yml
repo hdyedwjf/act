@@ -10,7 +10,7 @@
 # See /LICENSE for more information.
 #
 
-name: build&upload-xg040gmd
+name: build-xg040gmd-lto-gc
 
 on:
   repository_dispatch:
