@@ -10,7 +10,7 @@
 # See /LICENSE for more information.
 #
 
-name: build-xg040gmd
+name: build-xg040gmf-op-lto-gc-sections
 
 on:
   repository_dispatch:
