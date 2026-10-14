@@ -12,6 +12,10 @@
 
 name: build&upload-select-ponwrt
 
+permissions:
+  actions: write
+  contents: write
+
 on:
   repository_dispatch:
   workflow_dispatch:
