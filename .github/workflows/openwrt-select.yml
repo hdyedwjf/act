@@ -23,21 +23,30 @@ on:
       config_file:
         description: '选择要编译的配置文件'
         required: true
-        default: 'xg040gmd.config'
+        default: 'jtfg6700-openwrt.config'
         type: choice
         options:
-          - xg040gmd.config
-          - xg040gmf.config
+          - xg040gmf-openwrt.config
+          - jtfg6700-openwrt.config
+      repo_branch:
+        description: '选择要编译的分支'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - openwrt-25.12
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
     env:
-      REPO_URL: https://github.com/pbs05/ponwrt
-      REPO_BRANCH: master
+      REPO_URL: https://github.com/openwrt/openwrt
+      # 用 github.event.inputs，repository_dispatch 触发也不会报错
+      REPO_BRANCH: ${{ github.event.inputs.repo_branch || 'main' }}
       FEEDS_CONF: feeds.conf.default
-      CONFIG_FILE: ${{ inputs.config_file || 'xg040gmd.config' }}
+      CONFIG_FILE: ${{ github.event.inputs.config_file || 'jtfg6700-openwrt.config' }}
       DIY_P1_SH: diy-part1.sh
       DIY_P2_SH: diy-part2.sh
       UPLOAD_BIN_DIR: true
@@ -112,6 +121,8 @@ jobs:
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         echo "CONFIG_NAME=_$(basename ${{ env.CONFIG_FILE }} .config)" >> $GITHUB_ENV
+        # 把分支名也变成文件名的一部分（把 / 替换成 -）
+        echo "BRANCH_NAME=_$(echo '${{ env.REPO_BRANCH }}' | tr '/' '-')" >> $GITHUB_ENV
 
     - name: Check space usage
       if: (!cancelled())
@@ -121,7 +132,7 @@ jobs:
       uses: actions/upload-artifact@main
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
-        name: OpenWrt_bin${{ env.CONFIG_NAME }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        name: OpenWrt_bin${{ env.CONFIG_NAME }}${{ env.BRANCH_NAME }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
 
     # ★ 把 openwrt/bin 打包成跟 artifact 同名的 zip
@@ -130,7 +141,7 @@ jobs:
       if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
         cd openwrt
-        ZIP_NAME="OpenWrt_bin${{ env.CONFIG_NAME }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}.zip"
+        ZIP_NAME="OpenWrt_bin${{ env.CONFIG_NAME }}${{ env.BRANCH_NAME }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}.zip"
         zip -r -q "$GITHUB_WORKSPACE/$ZIP_NAME" bin
         echo "ZIP_PATH=$GITHUB_WORKSPACE/$ZIP_NAME" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
@@ -149,7 +160,7 @@ jobs:
       uses: actions/upload-artifact@main
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
-        name: OpenWrt_firmware${{ env.CONFIG_NAME }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        name: OpenWrt_firmware${{ env.CONFIG_NAME }}${{ env.BRANCH_NAME }}${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
     - name: Generate release tag
@@ -159,7 +170,18 @@ jobs:
         echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
         touch release.txt
         echo "配置: ${{ env.CONFIG_FILE }}" >> release.txt
+        echo "分支: ${{ env.REPO_BRANCH }}" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
+
+    # 先清理旧的 Release，再上传新的
+    - name: Remove old Releases
+      uses: dev-drprasad/delete-older-releases@master
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        keep_latest: 6
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     # ★ 同时上传 zip 和固件
     - name: Upload firmware to release
@@ -179,12 +201,3 @@ jobs:
       with:
         retain_days: 0
         keep_minimum_runs: 2
-
-    - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@master
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 6
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
