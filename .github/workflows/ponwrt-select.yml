@@ -23,11 +23,11 @@ on:
       config_file:
         description: '选择要编译的配置文件'
         required: true
-        default: 'xg040gmd.config'
+        default: 'xg040gmd-ponwrt.config'
         type: choice
         options:
-          - xg040gmd.config
-          - xg040gmf.config
+          - xg040gmd-ponwrt.config
+          - xg040gmf-ponwrt.config
 
 jobs:
   build:
